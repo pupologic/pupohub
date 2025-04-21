@@ -27,15 +27,6 @@
             font-family: Arial, sans-serif;
             font-size: 24px;
         }
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 24px;
-            pointer-events: none;
-        }
         #targetInfo {
             position: absolute;
             bottom: 20px;
@@ -44,9 +35,114 @@
             color: rgba(255, 255, 255, 0.8);
             font-family: Arial, sans-serif;
         }
+        #custom-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="%2300ffff" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>');
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;
+            filter: drop-shadow(0 0 4px rgba(0, 255, 255, 0.7));
+        }
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 8px solid rgba(0, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top: 8px solid #00ffff;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #00ffff;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            text-align: center;
+        }
+
+        #start-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 900;
+            display: none; /* Initially hidden */
+        }
+
+        .game-title {
+            color: #00ffff;
+            font-family: "Arial Black", Gadget, sans-serif;
+            font-size: 64px;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            margin-bottom: 50px;
+            letter-spacing: 2px;
+        }
+
+        #start-button {
+            background-color: transparent;
+            border: 3px solid #00ffff;
+            color: #00ffff;
+            padding: 15px 40px;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px #00ffff;
+            box-shadow: 0 0 10px #00ffff;
+        }
+
+        #start-button:hover {
+            background-color: rgba(0, 255, 255, 0.2);
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #00ffff;
+        }
+
+        #info, #score, #targetInfo {
+            visibility: hidden; /* Hide game UI elements initially */
+        }
     </style>
 </head>
+<div id="custom-cursor"></div>
 <body>
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <div class="loading-text">Loading Game Assets...</div>
+    </div>
+    
+    <div id="start-menu">
+        <h1 class="game-title">3D AIsteroid</h1>
+        <button id="start-button">START GAME</button>
+    </div>
     <div id="info">
         Controls: W/S/A/D to tilt ship | SPACE to thrust forward | CLICK on asteroid to target | HOLD LEFT CLICK to shoot
     </div>
@@ -56,17 +152,74 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.js"
+                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.js",
+                "GLTFLoader": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
+        import { GLTFLoader } from 'GLTFLoader';
+
+        async function loadModel(url) {
+            const loader = new GLTFLoader();
+            return new Promise((resolve, reject) => {
+                loader.load(
+                    url,
+                    (gltf) => resolve(gltf.scene),
+                    undefined,
+                    (error) => reject(error)
+                );
+            });
+        }
+
+        const cursor = document.getElementById('custom-cursor');
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let cursorX = mouseX;
+        let cursorY = mouseY;
+        const easeFactor = 0.6; // Lower = smoother but laggier
+
+        // Hide default cursor
+        document.body.style.cursor = 'none';
+
+        // Mouse movement handler
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Animation loop
+        function updateCursor() {
+            // Smooth follow with easing
+            const dx = mouseX - cursorX;
+            const dy = mouseY - cursorY;
+            cursorX += dx * easeFactor;
+            cursorY += dy * easeFactor;
+            
+            cursor.style.left = `${cursorX}px`;
+            cursor.style.top = `${cursorY}px`;
+            
+            requestAnimationFrame(updateCursor);
+        }
+
+        // Start following
+        updateCursor();
+
+        // Optional: Scale effect when clicking
+        window.addEventListener('mousedown', () => {
+            cursor.style.transform = 'translate(-50%, -50%) scale(0.7)';
+        });
+
+        window.addEventListener('mouseup', () => {
+            cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
 
         // Game state
         const gameState = {
             score: 0,
             thrust: false,
+            reverseThrust: false,
             tiltUp: false,
             tiltDown: false,
             tiltLeft: false,
@@ -88,9 +241,81 @@
             // Ship visual tilting
             shipTiltZ: 0,
             targetShipTiltZ: 0,
-            shipTiltSpeed: 0.1
+            shipTiltSpeed: 0.1,
+            // Boundary settings
+            boundaryRadius: 150, // Maximum distance from origin
+            boundaryWarningDistance: 30, // Distance at which boundary becomes visible
+            isHoveringAsteroid: false, // Track if mouse is over an asteroid
+            canEmitThrustParticles: true,
+            lastThrustParticleEmission: 0,
+            //Dodge
+            isDodging: false,
+            dodgeStartTime: 0,
+            dodgeDuration: 300, // Reduced from 500ms to 100ms (5x faster)
+            dodgeDistance: 20,  // Increased from 3 to 10 for visual clarity at high speed
+            dodgeDirection: new THREE.Vector3(),
+            originalPosition: new THREE.Vector3(),
+            originalRotation: new THREE.Quaternion(),
+            targetRotation: new THREE.Quaternion(),
+            rollAxis: new THREE.Vector3(),
+            maxRollAngle: Math.PI / 6, // 30 degrees in radians (for W/S)
+            canDodge: true,
+            dodgeCooldown: 300, // ms
+            lastSideThrusterEmission: 0,
+            // Raycast
+            raycastActive: true,
+            lastRaycastTime: 0,
+            raycastInterval: 100, // ms between raycasts
+            raycastDuration: 10, // ms how long each ray stays visible
+            impactParticles: [],
         };
 
+        // Function to extend material with Fresnel effect
+        function addFresnelToMaterial(material) {
+            material.onBeforeCompile = (shader) => {
+                // Add uniforms for Fresnel effect
+                shader.uniforms.rimColor = { value: new THREE.Color(0x00ccff) }; // Cyan rim glow
+                shader.uniforms.rimPower = { value: 5.0 }; // Rim sharpness
+                shader.uniforms.rimStrength = { value: 1 }; // 30% strength
+
+                // Modify vertex shader to pass normal and view position
+                shader.vertexShader = `
+                    varying vec3 vNormalFresnel;
+                    varying vec3 vViewPositionFresnel;
+                    ${shader.vertexShader}
+                `;
+                shader.vertexShader = shader.vertexShader.replace(
+                    `#include <worldpos_vertex>`,
+                    `#include <worldpos_vertex>
+                    vNormalFresnel = normalize(normalMatrix * normal);
+                    vViewPositionFresnel = -mvPosition.xyz;`
+                );
+
+                // Modify fragment shader to add Fresnel effect
+                shader.fragmentShader = `
+                    uniform vec3 rimColor;
+                    uniform float rimPower;
+                    uniform float rimStrength;
+                    varying vec3 vNormalFresnel;
+                    varying vec3 vViewPositionFresnel;
+                    ${shader.fragmentShader}
+                `;
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    `#include <dithering_fragment>`,
+                    `#include <dithering_fragment>
+                    vec3 normalFresnel = normalize(vNormalFresnel);
+                    vec3 viewDirFresnel = normalize(vViewPositionFresnel);
+                    float fresnel = pow(1.0 - max(dot(normalFresnel, viewDirFresnel), 0.0), rimPower);
+                    fresnel = clamp(fresnel * rimStrength, 0.0, 1.0);
+                    gl_FragColor.rgb = mix(gl_FragColor.rgb, rimColor, fresnel);`
+                );
+
+                // Store the shader for potential updates
+                material.userData.shader = shader;
+            };
+            material.needsUpdate = true;
+        }
+        
         // Camera settings
         const cameraSettings = {
             basePosition: new THREE.Vector3(0, 5, 10), // Base position relative to controller
@@ -100,8 +325,22 @@
             maxPullBack: 5, // Maximum camera pull back distance
             pullBackFactor: 0.5, // How much velocity affects pull back
             targetPosition: new THREE.Vector3(0, 5, 10), // Target position for smooth transitions
-            isTransitioning: false // Track if we're transitioning between positions
+            isTransitioning: false, // Track if we're transitioning between positions
+            previousThrustState: null, // Track previous thrust state for camera transitions
+            cameraTransitionBlocked: false, // Prevent rapid camera transitions
+            cameraTransitionTimeout: null // For managing transition timeouts
         };
+
+        const assetsToLoad = 2; // Ship + asteroid
+        let assetsLoaded = 0;
+
+        function assetLoaded() {
+            assetsLoaded++;
+            if (assetsLoaded >= assetsToLoad) {
+                // All assets loaded, show start menu
+                onResourcesLoaded();
+            }
+        }
 
         // Setup scene
         const scene = new THREE.Scene();
@@ -117,10 +356,12 @@
 
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0x404040);
+        ambientLight.intensity = 5;
         scene.add(ambientLight);
         
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(1, 1, 1);
+        directionalLight.intensity = 8;
         scene.add(directionalLight);
 
         // Create the controller (empty object that handles movement and camera)
@@ -129,27 +370,179 @@
         
         // Create ship
         const shipGroup = new THREE.Group();
+
+        const raycastGeometry = new THREE.BufferGeometry();
+        const raycastMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.8,
+            linewidth: 2
+        });
+        const raycastLine = new THREE.Line(raycastGeometry, raycastMaterial);
+        raycastLine.visible = false;
+        scene.add(raycastLine);
+
+        // Create a loader
+        const loader = new GLTFLoader();
+
+        // URL to your model (using raw.githubusercontent.com)
+        const shipModelUrl = 'https://raw.githubusercontent.com/pupologic/pupohub/c785d92fc54a7d689934d27d054cdac92d449a9e/Ship_Mirror_Low_AI.glb';
+        const asteroidModelUrl = 'https://raw.githubusercontent.com/pupologic/pupohub/2ab2a01ab5760fb31f2275b47a501d62250a8be5/Meteor.glb';
         
-        // Ship body
-        const shipGeometry = new THREE.ConeGeometry(1, 3, 8);
-        const shipMaterial = new THREE.MeshPhongMaterial({ color: 0x3333ff });
-        const ship = new THREE.Mesh(shipGeometry, shipMaterial);
-        ship.rotation.x = Math.PI / 2;
-        ship.rotation.z = Math.PI;
-        ship.position.set(0, 0, -2);
-        shipGroup.add(ship);
+
+        // Load the ship
+        loader.load(
+            shipModelUrl,
+            (gltf) => {
+                const shipModel = gltf.scene;
+                
+                // Adjust scale and position as needed
+                shipModel.scale.set(6, 6, 6);
+                shipModel.position.set(0, 0, -2);
+                shipModel.rotation.y = Math.PI;
+
+                // Apply Fresnel effect to all mesh materials
+                shipModel.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        addFresnelToMaterial(child.material);
+                    }
+                });   
+                // Add to ship group
+                shipGroup.add(shipModel);
+                
+                // Mark asset as loaded
+                assetLoaded();
+            },
+            undefined,
+            (error) => {
+                console.error('Error loading ship model:', error);
+                // Fallback to simple ship if loading fails
+                const shipGeometry = new THREE.ConeGeometry(1, 3, 8);
+                const shipMaterial = new THREE.MeshPhongMaterial({ color: 0x3333ff });
+                const ship = new THREE.Mesh(shipGeometry, shipMaterial);
+                ship.rotation.x = Math.PI / 2;
+                ship.rotation.z = Math.PI;
+                ship.position.set(0, 0, -2);
+                shipGroup.add(ship);
+                
+                // Mark asset as loaded even if we're using fallback
+                assetLoaded();
+            }
+        );
         
-        // Ship wings
-        const wingGeometry = new THREE.BoxGeometry(4, 0.2, 1);
-        const wingMaterial = new THREE.MeshPhongMaterial({ color: 0x6666ff });
-        const wings = new THREE.Mesh(wingGeometry, wingMaterial);
-        wings.position.z = 0;
-        shipGroup.add(wings);
+        let asteroidModel;
+
+        function loadAsteroidModel() {
+            loader.load(
+                asteroidModelUrl,
+                (gltf) => {
+                    asteroidModel = gltf.scene;
+                    
+                    // Ajustes iniciais do modelo
+                    asteroidModel.scale.set(6, 6, 6);
+                    asteroidModel.position.set(0, 0, 0);
+                    asteroidModel.rotation.y = Math.PI;
+                    
+                    // Mark asset as loaded
+                    assetLoaded();
+                    
+                },
+                undefined,
+                (error) => {
+                    console.error('Erro ao carregar o modelo:', error);
+                    // Mark as loaded even though it failed
+                    assetLoaded();
+                }
+            );
+        }
         
+        // Game state management
+        const GAME_STATE = {
+            LOADING: 'loading',
+            MENU: 'menu',
+            PLAYING: 'playing'
+        };
+
+        let currentGameState = GAME_STATE.LOADING;
+
+        // DOM elements
+        const loadingScreen = document.getElementById('loading-screen');
+        const startMenu = document.getElementById('start-menu');
+        const startButton = document.getElementById('start-button');
+        const infoElement = document.getElementById('info');
+        const scoreElement = document.getElementById('score');
+        const targetInfoElement = document.getElementById('targetInfo');
+
+        // Initialize game in loading state
+        function initGameStates() {
+            // Hide game UI elements
+            infoElement.style.visibility = 'hidden';
+            scoreElement.style.visibility = 'hidden';
+            targetInfoElement.style.visibility = 'hidden';
+            
+            // Initial state is loading
+            loadingScreen.style.display = 'flex';
+            startMenu.style.display = 'none';
+            
+            // Setup start button event listener
+            startButton.addEventListener('click', startGame);
+        }
+
+        // Called when all resources are loaded
+        function onResourcesLoaded() {
+            // Hide loading screen, show menu
+            loadingScreen.style.display = 'none';
+            startMenu.style.display = 'flex';
+            currentGameState = GAME_STATE.MENU;
+        }
+
+        // Start the game when button is clicked
+        function startGame() {
+            // Hide menu, show game UI
+            startMenu.style.display = 'none';
+            infoElement.style.visibility = 'visible';
+            scoreElement.style.visibility = 'visible';
+            targetInfoElement.style.visibility = 'visible';
+            
+            // Start game
+            currentGameState = GAME_STATE.PLAYING;
+            
+            // Enable controls, reset game state, etc.
+            initGameplay();
+        }
+
+        // Initialize gameplay elements
+        function initGameplay() {
+            // Reset score
+            gameState.score = 0;
+            updateScore();
+            
+            // Reset ship position
+            controller.position.set(0, 0, 0);
+            gameState.velocity.set(0, 0, 0);
+            controller.visible = true;
+            
+            for (let i = asteroids.length - 1; i >= 0; i--) {
+                scene.remove(asteroids[i]);
+                asteroids.splice(i, 1);
+            }
+            asteroidDetails.length = 0;
+
+            // Start asteroid spawning
+            initAsteroids();
+        }
+
+        // Update score display
+        function updateScore() {
+            scoreElement.textContent = "Score: " + gameState.score;
+        }
+        
+        controller.visible = false;
+
         // Create thrust effect
         const thrustGeometry = new THREE.ConeGeometry(0.5, 2, 8);
         const thrustMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xff3300,
+            color: new THREE.Color('#04FF8C'),
             transparent: true,
             opacity: 0.7
         });
@@ -158,6 +551,33 @@
         thrust.rotation.x = Math.PI/2;
         thrust.visible = false;
         shipGroup.add(thrust);
+        
+        
+        // Create left side thruster
+        const leftThrustGeometry = new THREE.ConeGeometry(0.3, 1.2, 8);
+        const leftThrustMaterial = new THREE.MeshBasicMaterial({ 
+            color: new THREE.Color('#04FF8C'),
+            transparent: true,
+            opacity: 0.7
+        });
+        const leftThrust = new THREE.Mesh(leftThrustGeometry, leftThrustMaterial);
+        leftThrust.position.set(-2.2, 0, 0);
+        leftThrust.rotation.x = Math.PI/2;
+        leftThrust.visible = false;
+        shipGroup.add(leftThrust);
+        
+        // Create right side thruster
+        const rightThrustGeometry = new THREE.ConeGeometry(0.3, 1.2, 8);
+        const rightThrustMaterial = new THREE.MeshBasicMaterial({ 
+            color: new THREE.Color('#04FF8C'),
+            transparent: true,
+            opacity: 0.7
+        });
+        const rightThrust = new THREE.Mesh(rightThrustGeometry, rightThrustMaterial);
+        rightThrust.position.set(2.2, 0, 0);
+        rightThrust.rotation.x = Math.PI/2;
+        rightThrust.visible = false;
+        shipGroup.add(rightThrust);
         
         // Make the ship a child of the controller
         controller.add(shipGroup);
@@ -169,8 +589,50 @@
         camera.position.copy(cameraSettings.basePosition);
         camera.lookAt(new THREE.Vector3(0, 0, -10)); // Look forward
 
+        // Create boundary sphere
+        const boundaryPatches = [];
+        const numPatches = 400; // Number of boundary patches to create
+
+        // Function to create a boundary patch
+        function createBoundaryPatch() {
+            // Create geometry for a quad outline (5 points to close the loop)
+            const geometry = new THREE.BufferGeometry();
+            
+            // Define the 5 vertices to create a closed square outline
+            const vertices = new Float32Array([
+                -0.5, -0.5, 0,  // bottom left
+                0.5, -0.5, 0,  // bottom right
+                0.5,  0.5, 0,  // top right
+                -0.5,  0.5, 0,  // top left
+                -0.5, -0.5, 0   // back to bottom left (closes the loop)
+            ]);
+            
+            // Set position attribute
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            
+            // Use LineBasicMaterial instead of MeshBasicMaterial
+            const lineMaterial = new THREE.LineBasicMaterial({
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.0,
+                linewidth: 1 // Note: linewidth > 1 may not work on all platforms due to WebGL limitations
+            });
+            
+            // Create a Line instead of a Mesh
+            const patch = new THREE.Line(geometry, lineMaterial);
+            patch.visible = false;
+            scene.add(patch);
+            boundaryPatches.push(patch);
+            return patch;
+        }
+        
+        // Create initial boundary patches
+        for (let i = 0; i < numPatches; i++) {
+            createBoundaryPatch();
+        }
+
         // Target indicator (visual feedback for the selected asteroid)
-        const targetIndicatorGeometry = new THREE.RingGeometry(4, 4.5, 16);
+        const targetIndicatorGeometry = new THREE.RingGeometry(0.66, 0.75, 16); // Made 1/6 of original size
         const targetIndicatorMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff0000,
             transparent: true,
@@ -201,15 +663,22 @@
 
         // Projectile pool
         const projectiles = [];
-        const projectileGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-        const projectileMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const projectileGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+        const projectileMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
 
         function createProjectile() {
             const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
             projectile.visible = false;
             projectile.active = false;
             projectile.velocity = new THREE.Vector3();
-            projectile.target = null; // For soft aim system
+            projectile.target = null; 
+            projectile.lifetime = 0;
+            projectile.maxLifetime = 100;
             scene.add(projectile);
             projectiles.push(projectile);
             return projectile;
@@ -222,33 +691,43 @@
 
         // Update target indicator position and orientation
         function updateTargetIndicator() {
-            if (gameState.currentTarget) {
-                targetIndicator.visible = true;
-                targetIndicator.position.copy(gameState.currentTarget.position);
-                
-                // Make it always face the camera by aligning with camera's view direction
-                const cameraDirection = new THREE.Vector3();
-                camera.getWorldDirection(cameraDirection);
-                targetIndicator.quaternion.setFromUnitVectors(
-                    new THREE.Vector3(0, 0, 1), // Default orientation
-                    cameraDirection.clone().negate() // Face towards camera
-                );
-                
-                // Scale based on distance
-                const distance = targetIndicator.position.distanceTo(controller.position);
-                const size = Math.max(1, distance * 0.15);
-                targetIndicator.scale.set(size, size, size);
-                
-                // Update target info display
-                const distance2D = Math.floor(distance * 10) / 10;
-                document.getElementById('targetInfo').textContent = 
-                    `Target locked: Distance ${distance2D} units`;
-            } else {
+            if (!gameState.currentTarget || !gameState.isHoveringAsteroid || !gameState.mouseDown) {
                 targetIndicator.visible = false;
                 document.getElementById('targetInfo').textContent = 'No target selected';
+                return;
             }
-        }
 
+            // 1. Calculate meteor-to-ship direction (world space)
+            const meteorToShip = controller.position.clone()
+                .sub(gameState.currentTarget.position)
+                .normalize();
+
+            // 2. Position target on meteor's "front" (facing the ship)
+            const meteorRadius = asteroidDetails[asteroids.indexOf(gameState.currentTarget)].radius;
+            const targetPosition = gameState.currentTarget.position.clone()
+                .add(meteorToShip.multiplyScalar(meteorRadius * 1.05)); // Slightly outside surface
+
+            // 3. Place and orient the indicator
+            targetIndicator.position.copy(targetPosition);
+            
+            // Make indicator face the camera while aligning with meteor surface
+            const cameraDirection = new THREE.Vector3();
+            camera.getWorldDirection(cameraDirection);
+            targetIndicator.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0, 0, 1),
+                cameraDirection.clone().negate()
+            );
+            
+            // Scale based on distance
+            const distance = targetPosition.distanceTo(controller.position);
+            targetIndicator.scale.setScalar(Math.max(1, distance * 0.15));
+            
+            // Update UI
+            document.getElementById('targetInfo').textContent = 
+                `Target locked | Distance: ${Math.floor(distance * 10) / 10} units`;
+            targetIndicator.visible = true;
+        }
+        
         // Check for targets under mouse cursor
         function checkForTargetUnderMouse() {
             // Update raycaster with mouse and camera
@@ -258,15 +737,21 @@
             const intersects = raycaster.intersectObjects(asteroids);
             
             if (intersects.length > 0) {
-                // We hit an asteroid - set as target
                 const clickedAsteroid = intersects[0].object;
-                if (gameState.currentTarget !== clickedAsteroid) {
-                    // Set new target
-                    gameState.currentTarget = clickedAsteroid;
+                //console.log("Hit asteroid:", clickedAsteroid); // Log the hit object
+
+                // Traverse up to find the root asteroid group
+                let targetAsteroid = clickedAsteroid;
+                while (targetAsteroid.parent && !asteroids.includes(targetAsteroid)) {
+                    targetAsteroid = targetAsteroid.parent;
                 }
+
+                //console.log("Final target asteroid:", targetAsteroid);
+                gameState.currentTarget = targetAsteroid;
+                gameState.isHoveringAsteroid = true;
             } else {
-                // No target under mouse, keep current target or clear if none
-                if (!gameState.currentTarget || !asteroids.includes(gameState.currentTarget)) {
+                gameState.isHoveringAsteroid = false;
+                if (!gameState.mouseDown || !gameState.autoFire) {
                     gameState.currentTarget = null;
                 }
             }
@@ -288,13 +773,24 @@
             // Get direction based on controller's forward direction
             const direction = new THREE.Vector3(0, 0, -1);
             direction.applyQuaternion(controller.quaternion);
-            
+
             // Move projectile forward a bit to start
             projectile.position.add(direction.clone().multiplyScalar(3));
-            
+
+            const initialQuaternion = new THREE.Quaternion();
+            initialQuaternion.setFromUnitVectors(
+                new THREE.Vector3(0, 0, 1), // Cylinder's natural up direction
+                direction // Direction we want cylinder to point
+            );
+
+            projectile.quaternion.copy(initialQuaternion);
+            projectile.rotation.x = Math.PI / 2; // Adjust if needed for cylinder orientation
+
             projectile.velocity.copy(direction).multiplyScalar(1);
+            projectile.initialDirection = direction.clone();
             projectile.active = true;
             projectile.visible = true;
+            projectile.lifetime = 0;
             
             // Add controller's velocity to projectile
             projectile.velocity.add(gameState.velocity.clone().multiplyScalar(0.5));
@@ -307,30 +803,398 @@
             setTimeout(() => { gameState.canShoot = true; }, gameState.shootCooldown);
         }
 
+        function createImpactParticles(hitPoint, hitNormal) {
+            const particleCount = 10;
+            const geometry = new THREE.BufferGeometry();
+            const material = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.4,
+                transparent: true,
+                blending: THREE.AdditiveBlending
+            });
+
+            // Initialize particles at hit point
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = [];
+            const sizes = new Float32Array(particleCount);
+            const opacities = new Float32Array(particleCount);
+            
+            for (let i = 0; i < particleCount; i++) {
+                // Start at collision point
+                positions[i * 3] = hitPoint.x;
+                positions[i * 3 + 1] = hitPoint.y;
+                positions[i * 3 + 2] = hitPoint.z;
+                
+                // Random outward velocity (repelled by surface normal)
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.2 + (hitNormal ? hitNormal.x * 0.1 : 0), // Reduced multiplier
+                    (Math.random() - 0.5) * 0.2 + (hitNormal ? hitNormal.y * 0.1 : 0), // Reduced multiplier
+                    (Math.random() - 0.5) * 0.2 + (hitNormal ? hitNormal.z * 0.1 : 0)  // Reduced multiplier
+                ).normalize().multiplyScalar(0.1 + Math.random() * 0.1);
+                
+                velocities.push(velocity);
+                sizes[i] = 0.1 + Math.random() * 0.2;
+                opacities[i] = 1.0;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute('opacity', new THREE.BufferAttribute(opacities, 1));
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+            
+            // Store particle system with physics data
+            gameState.impactParticles.push({
+                mesh: particles,
+                velocities: velocities,
+                lifetime: 0,
+                maxLifetime: 100 // 1 second
+            });
+        }
+
+
+        function updateImpactParticles() {
+            const toRemove = [];
+            
+            for (let i = 0; i < gameState.impactParticles.length; i++) {
+                const system = gameState.impactParticles[i];
+                system.lifetime += 16; // ~60fps delta
+                
+                // Update particle positions
+                const positions = system.mesh.geometry.attributes.position.array;
+                const opacities = system.mesh.geometry.attributes.opacity.array;
+                
+                for (let j = 0; j < system.velocities.length; j++) {
+                    // Apply velocity
+                    positions[j * 3] += system.velocities[j].x;
+                    positions[j * 3 + 1] += system.velocities[j].y;
+                    positions[j * 3 + 2] += system.velocities[j].z;
+                    
+                    // Apply gravity
+                    system.velocities[j].y -= 0.001;
+                    
+                    // Fade out
+                    opacities[j] = 1 - (system.lifetime / system.maxLifetime);
+                }
+                
+                system.mesh.geometry.attributes.position.needsUpdate = true;
+                system.mesh.geometry.attributes.opacity.needsUpdate = true;
+                system.mesh.material.opacity = 1 - (system.lifetime / system.maxLifetime);
+                
+                // Mark for removal
+                if (system.lifetime >= system.maxLifetime) {
+                    toRemove.push(i);
+                }
+            }
+
+            // Remove expired systems
+            toRemove.reverse().forEach(index => {
+                scene.remove(gameState.impactParticles[index].mesh);
+                gameState.impactParticles.splice(index, 1);
+            });
+        }
+
+
+        // Create particle system for explosion effects
+        const particleCount = 30;
+        const explosionParticles = [];
+
+        function createExplosionParticleSystem() {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const material = new THREE.PointsMaterial({
+                color: 0xff5500,
+                size: 0.5,
+                transparent: true,
+                opacity: 1.0
+            });
+            
+            const particles = new THREE.Points(geometry, material);
+            particles.visible = false;
+            particles.active = false;
+            particles.velocities = [];
+            particles.lifetime = 0;
+            
+            // Initialize velocities
+            for (let i = 0; i < particleCount; i++) {
+                particles.velocities.push(new THREE.Vector3());
+            }
+            
+            scene.add(particles);
+            explosionParticles.push(particles);
+            return particles;
+        }
+
+        // Create initial particle systems
+        for (let i = 0; i < 10; i++) {
+            createExplosionParticleSystem();
+        }
+
+        function createExplosion(position, size) {
+            // Find an inactive particle system
+            let particles = explosionParticles.find(p => !p.active);
+            if (!particles) {
+                particles = createExplosionParticleSystem();
+            }
+            
+            // Position the particle system
+            particles.position.copy(position);
+            
+            // Reset and randomize particles
+            const positions = particles.geometry.attributes.position.array;
+            
+            for (let i = 0; i < particleCount; i++) {
+                // Reset position
+                positions[i * 3] = 0;
+                positions[i * 3 + 1] = 0;
+                positions[i * 3 + 2] = 0;
+                
+                // Set random velocity in sphere
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2
+                );
+                velocity.normalize().multiplyScalar(0.1 * size * (0.5 + Math.random()));
+                particles.velocities[i] = velocity;
+            }
+            
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.visible = true;
+            particles.active = true;
+            particles.lifetime = 0;
+            particles.material.opacity = 1.0;
+            particles.material.color.set(size === 1 ? 0xff5500 : 0xffaa00);
+            particles.material.size = size * 0.1;
+        }
+
+        const thrusterParticles = [];
+        const thrusterParticleCount = 25;
+
+        function createThrusterParticleSystem() {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(thrusterParticleCount * 3);
+            const sizes = new Float32Array(thrusterParticleCount);
+            
+            // Initialize sizes
+            for (let i = 0; i < thrusterParticleCount; i++) {
+                sizes[i] = 0.5 * (0.8 + Math.random() * 0.4); // Random initial size
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const material = new THREE.PointsMaterial({
+                color: 0x00ff00,
+                size: 0.1, // This is the base size (will be multiplied by our size attribute)
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+            
+            const particles = new THREE.Points(geometry, material);
+            particles.visible = false;
+            particles.active = false;
+            particles.velocities = [];
+            particles.lifetime = 0;
+            particles.maxLifetime = 25;
+            
+            for (let i = 0; i < thrusterParticleCount; i++) {
+                particles.velocities.push(new THREE.Vector3());
+            }
+            
+            scene.add(particles);
+            thrusterParticles.push(particles);
+            return particles;
+        }
+        
+        function updateThrusters() {
+            const now = Date.now();
+            
+            // Main thruster (space key)
+            if (gameState.thrust && now - gameState.lastThrustParticleEmission > 50) {
+                const thrustPos = new THREE.Vector3(0, 0, 0)
+                    .applyMatrix4(shipGroup.matrixWorld);
+                const thrustDir = new THREE.Vector3(0, 0, 1)
+                    .applyQuaternion(controller.quaternion);
+                createThrusterParticles(thrustPos, thrustDir);
+                gameState.lastThrustParticleEmission = now;
+            }
+
+            // Left/right thrusters (A/D keys)
+            if ((gameState.tiltLeft || gameState.tiltRight) && 
+                now - gameState.lastSideThrusterEmission > 30) {
+                
+                const side = gameState.tiltLeft ? 1 : -1;
+                const sideThrusterPos = new THREE.Vector3(side * 2.2, 0, -0.5)
+                    .applyMatrix4(shipGroup.matrixWorld);
+                const sideThrusterDir = new THREE.Vector3( 0, 0, 1)
+                    .applyQuaternion(controller.quaternion);
+                
+                createThrusterParticles(sideThrusterPos, sideThrusterDir, true);
+                gameState.lastSideThrusterEmission = now;
+            }
+        }
+
+        function startDodge() {
+            if (currentGameState !== GAME_STATE.PLAYING || !gameState.canDodge) return;
+            gameState.canDodge = false;
+            setTimeout(() => gameState.canDodge = true, gameState.dodgeCooldown);
+
+            // Get LOCAL dodge direction (relative to ship orientation)
+            gameState.dodgeDirection.set(0, 0, 0);
+            if (gameState.tiltLeft) gameState.dodgeDirection.x -= 1; // Local left
+            if (gameState.tiltRight) gameState.dodgeDirection.x += 1; // Local right
+            if (gameState.tiltUp) gameState.dodgeDirection.y += 1; // Local up
+            if (gameState.tiltDown) gameState.dodgeDirection.y -= 1; // Local down
+            
+            // Default to local right if no direction pressed
+            if (gameState.dodgeDirection.length() === 0) {
+                gameState.dodgeDirection.x = 1;
+            }
+            gameState.dodgeDirection.normalize();
+
+            // 2. Store original transform (WORLD space)
+            gameState.originalPosition.copy(controller.position);
+            gameState.originalRotation.copy(shipGroup.quaternion);
+
+            // 3. Calculate target position (convert local to world space)
+            const worldDirection = gameState.dodgeDirection.clone()
+                .applyQuaternion(controller.quaternion);
+            gameState.targetPosition = gameState.originalPosition.clone()
+                .add(worldDirection.multiplyScalar(gameState.dodgeDistance));
+
+            // Determine roll axis and angle
+            if (Math.abs(gameState.dodgeDirection.x) > Math.abs(gameState.dodgeDirection.y)) {
+                // Left/Right - full 360° Z-roll
+                gameState.rollAxis.set(0, 0, 1);
+                if (gameState.dodgeDirection.x < 0) gameState.rollAxis.z *= -1;
+                gameState.maxRollAngle = Math.PI * 2; // 360°
+            } else {
+                // Up/Down - 30° X-tilt
+                gameState.rollAxis.set(1, 0, 0);
+                if (gameState.dodgeDirection.y < 0) gameState.rollAxis.x *= -1;
+                gameState.maxRollAngle = Math.PI / 6; // 30°
+            }
+
+            gameState.isDodging = true;
+            gameState.dodgeStartTime = Date.now();
+
+            // Visual effect (particles in opposite direction)
+            createThrusterParticles(
+                controller.position,
+                worldDirection.multiplyScalar(-1)
+            );
+        }
+
+        function updateDodge() {
+            if (!gameState.isDodging) return;
+
+            const elapsed = Date.now() - gameState.dodgeStartTime;
+            const progress = Math.min(elapsed / gameState.dodgeDuration, 1);
+            const easedProgress = Math.sin(progress * Math.PI * 0.5); // Ease-out
+
+            // Position LERP (world space)
+            controller.position.lerpVectors(
+                gameState.originalPosition,
+                gameState.targetPosition,
+                easedProgress
+            );
+            
+            // Rotation handling - DIFFERENT for A/D vs W/S
+            if (Math.abs(gameState.dodgeDirection.x) > Math.abs(gameState.dodgeDirection.y)) {
+                // A/D DODGE (360° continuous roll)
+                const angle = progress * Math.PI * 2; // Full rotation
+                const roll = new THREE.Quaternion()
+                    .setFromAxisAngle(gameState.rollAxis, angle);
+                shipGroup.quaternion.copy(gameState.originalRotation)
+                    .multiply(roll);
+            } else {
+                // W/S DODGE (30° lerped tilt)
+                if (progress < 0.5) {
+                    // Tilt forward
+                    const angle = (progress * 2) * gameState.maxRollAngle;
+                    const tilt = new THREE.Quaternion()
+                        .setFromAxisAngle(gameState.rollAxis, angle);
+                    shipGroup.quaternion.copy(gameState.originalRotation)
+                        .multiply(tilt);
+                } else {
+                    // Return to normal
+                    const returnProgress = (progress - 0.5) * 2;
+                    const angle = (1 - returnProgress) * gameState.maxRollAngle;
+                    const returnTilt = new THREE.Quaternion()
+                        .setFromAxisAngle(gameState.rollAxis, angle);
+                    shipGroup.quaternion.copy(gameState.originalRotation)
+                        .multiply(returnTilt);
+                }
+            }
+
+            // End dodge
+            if (progress >= 1) {
+                gameState.isDodging = false;
+                controller.position.copy(gameState.targetPosition);
+                shipGroup.quaternion.copy(gameState.originalRotation);
+            }
+        }
+
+        // Create initial systems
+        for (let i = 0; i < 5; i++) {
+            createThrusterParticleSystem();
+        }
+
+        function createThrusterParticles(position, direction, isSideThruster = false) {
+            let particles = thrusterParticles.find(p => !p.active);
+            if (!particles) {
+                particles = createThrusterParticleSystem();
+            }
+            
+            particles.position.copy(position);
+            const positions = particles.geometry.attributes.position.array;
+            const sizes = particles.geometry.attributes.size.array;
+            
+            // Different particle behavior for side vs main thrusters
+            const spreadFactor = isSideThruster ? 0.5 : 0.7;
+            const speedFactor = isSideThruster ? 0.8 : 1.0;
+            const baseSize = isSideThruster ? 0.3 : 0.5;
+
+            for (let i = 0; i < thrusterParticleCount; i++) {
+                // Position (wider spread for side thrusters)
+                positions[i * 3] = (Math.random() - 0.5) * spreadFactor;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * spreadFactor;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+
+                // Size variation (smaller for side thrusters)
+                sizes[i] = baseSize * (0.8 + Math.random() * 0.4);
+
+                // Velocity (slightly weaker for side thrusters)
+                const vel = direction.clone();
+                vel.x += (Math.random() - 0.5) * 0.5;
+                vel.y += (Math.random() - 0.5) * 0.5;
+                vel.z += (Math.random() - 0.5) * 0.2;
+                vel.normalize().multiplyScalar(speedFactor * (0.1 + Math.random() * 0.2));
+                particles.velocities[i] = vel;
+            }
+
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.size.needsUpdate = true;
+            particles.visible = true;
+            particles.active = true;
+            particles.lifetime = 0;
+            particles.maxLifetime = isSideThruster ? 10 : 15; // Shorter lifespan for side thrusters
+        }
+        
         // Asteroids
         const asteroids = [];
         const asteroidDetails = [];
 
-        function createAsteroidGeometry(radius, detail) {
-            const geometry = new THREE.IcosahedronGeometry(radius, detail);
-            // Add some randomness to vertices
-            const positions = geometry.attributes.position;
-            const bumpAmount = radius * 0.2;
-            
-            for (let i = 0; i < positions.count; i++) {
-                const x = positions.getX(i);
-                const y = positions.getY(i);
-                const z = positions.getZ(i);
-                
-                const bump = (Math.random() - 0.5) * bumpAmount;
-                const normalized = new THREE.Vector3(x, y, z).normalize();
-                
-                positions.setX(i, x + normalized.x * bump);
-                positions.setY(i, y + normalized.y * bump);
-                positions.setZ(i, z + normalized.z * bump);
+        function initAsteroids() {
+            for (let i = 0; i < 15; i++) {
+                createAsteroid('large');
             }
-            
-            return geometry;
         }
 
         function createAsteroid(size = 'large') {
@@ -338,38 +1202,38 @@
             let detail;
             let health;
             let speed;
-            
+
+            if (!asteroidModel) {
+                console.error('Modelo de asteroide não carregado!');
+                return;
+            }
+
             // Set properties based on size
             switch(size) {
                 case 'large':
-                    radius = 3 + Math.random() * 2;
+                    radius = 20 + Math.random() * 2;
                     detail = 1;
                     health = 3;
                     speed = 0.01 + Math.random() * 0.02;
                     break;
                 case 'medium':
-                    radius = 1.5 + Math.random();
+                    radius = 10 + Math.random();
                     detail = 1;
                     health = 2;
                     speed = 0.03 + Math.random() * 0.02;
                     break;
                 case 'small':
-                    radius = 0.7 + Math.random() * 0.5;
+                    radius = 5 + Math.random() * 0.5;
                     detail = 0;
                     health = 1;
                     speed = 0.05 + Math.random() * 0.02;
                     break;
             }
             
-            const geometry = createAsteroidGeometry(radius, detail);
-            const material = new THREE.MeshPhongMaterial({
-                color: 0x999999,
-                flatShading: true,
-                specular: 0x111111,
-                shininess: 10
-            });
-            
-            const asteroid = new THREE.Mesh(geometry, material);
+            const asteroid = asteroidModel.clone();
+            const baseScale = 2; // ajuste se necessário conforme o tamanho original do modelo
+            const scaleFactor = radius / baseScale;
+            asteroid.scale.set(scaleFactor, scaleFactor, scaleFactor);
             
             // Random position
             const distance = 100;
@@ -419,10 +1283,7 @@
             return asteroid;
         }
 
-        // Create initial asteroids
-        for (let i = 0; i < 15; i++) {
-            createAsteroid('large');
-        }
+        loadAsteroidModel();
 
         // Handle window resize
         window.addEventListener('resize', () => {
@@ -436,25 +1297,37 @@
             switch (event.code) {
                 case 'Space':
                     if (!gameState.thrust) {
+                        gameState.previousThrustState = gameState.reverseThrust ? 'reverse' : 'none';
                         gameState.thrust = true;
                         thrust.visible = true;
-                        
-                        // Calculate target position for camera pull back
-                        const velocityMagnitude = gameState.velocity.length();
-                        const pullBackAmount = Math.min(
-                            cameraSettings.maxPullBack, 
-                            velocityMagnitude * cameraSettings.pullBackFactor * 100
-                        );
-                        
-                        // Set the target position - don't move camera immediately
-                        cameraSettings.targetPosition.set(
-                            cameraSettings.basePosition.x,
-                            cameraSettings.basePosition.y,
-                            cameraSettings.basePosition.z + pullBackAmount
-                        );
-                        
-                        // We're now transitioning to pulled back position
-                        cameraSettings.isTransitioning = true;
+
+                    
+                        // Don't immediately switch camera if we're rapidly toggling between thrust states
+                        if (!gameState.cameraTransitionBlocked) {
+                            // Calculate target position for camera pull back
+                            const velocityMagnitude = gameState.velocity.length();
+                            const pullBackAmount = Math.min(
+                                cameraSettings.maxPullBack, 
+                                velocityMagnitude * cameraSettings.pullBackFactor * 100
+                            );
+                            
+                            // Set the target position - don't move camera immediately
+                            cameraSettings.targetPosition.set(
+                                cameraSettings.basePosition.x,
+                                cameraSettings.basePosition.y,
+                                cameraSettings.basePosition.z + pullBackAmount
+                            );
+                            
+                            // We're now transitioning to pulled back position
+                            cameraSettings.isTransitioning = true;
+                            
+                            // Block rapid transitions
+                            gameState.cameraTransitionBlocked = true;
+                            if (gameState.cameraTransitionTimeout) clearTimeout(gameState.cameraTransitionTimeout);
+                            gameState.cameraTransitionTimeout = setTimeout(() => {
+                                gameState.cameraTransitionBlocked = false;
+                            }, 500); // Prevent transitions for 500ms
+                        }
                     }
                     break;
                 case 'KeyW':
@@ -467,13 +1340,26 @@
                     gameState.tiltLeft = true;
                     // Set target ship tilt for banking effect
                     gameState.targetShipTiltZ = Math.PI * 0.12; // About 22 degrees
+                    // Enable right thruster
+                    rightThrust.visible = true;
                     break;
                 case 'KeyD':
                     gameState.tiltRight = true;
                     // Set target ship tilt for banking effect
                     gameState.targetShipTiltZ = -Math.PI * 0.12; // About -22 degrees
+                    // Enable left thruster
+                    leftThrust.visible = true;
+                    break;
+                case 'KeyQ':
+                    gameState.reverseThrust = true;
+                    break;
+                case 'KeyE':
+                    if (!gameState.isDodging) {
+                        startDodge();
+                    }
                     break;
             }
+
         });
 
         window.addEventListener('keyup', (event) => {
@@ -481,6 +1367,7 @@
                 case 'Space':
                     gameState.thrust = false;
                     thrust.visible = false;
+
                     cameraSettings.targetPosition.copy(cameraSettings.basePosition);
                     cameraSettings.isTransitioning = true;
                     break;
@@ -496,12 +1383,24 @@
                     if (!gameState.tiltRight) {
                         gameState.targetShipTiltZ = 0;
                     }
+                    // Disable right thruster
+                    rightThrust.visible = false;
                     break;
                 case 'KeyD':
                     gameState.tiltRight = false;
                     // Reset target tilt when key is released
                     if (!gameState.tiltLeft) {
                         gameState.targetShipTiltZ = 0;
+                    }
+                    // Disable left thruster
+                    leftThrust.visible = false;
+                    break;
+                case 'KeyQ':
+                    gameState.reverseThrust = false;
+                    // Remove the reverse thrust visual effect
+                    if (gameState.backThrustEffect) {
+                        shipGroup.remove(gameState.backThrustEffect);
+                        gameState.backThrustEffect = null;
                     }
                     break;
             }
@@ -512,10 +1411,8 @@
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             
-            // If mouse is down and in auto-fire mode, check for targets
-            if (gameState.mouseDown && gameState.autoFire) {
-                checkForTargetUnderMouse();
-            }
+            // Check for targets on mouse move
+            checkForTargetUnderMouse();
         });
 
         // Mouse click handler for targeting and shooting
@@ -535,12 +1432,9 @@
             if (event.button === 0) { // Left click release
                 gameState.mouseDown = false;
                 gameState.autoFire = false;
-                gameState.currentTarget = null; // Clear target immediately on release
                 
-                // Clear target if no longer clicking
-                if (!gameState.currentTarget || !asteroids.includes(gameState.currentTarget)) {
-                    gameState.currentTarget = null;
-                }
+                // Check for target under mouse
+                checkForTargetUnderMouse();
             }
         });
 
@@ -638,10 +1532,15 @@
                 for (let j = asteroids.length - 1; j >= 0; j--) {
                     const asteroid = asteroids[j];
                     const distance = projectile.position.distanceTo(asteroid.position);
-                    const collisionThreshold = asteroidDetails[j].size === 'large' ? 3 : 
-                                              asteroidDetails[j].size === 'medium' ? 1.5 : 0.7;
+                    const collisionThreshold = asteroidDetails[j].size === 'large' ? 7 : 
+                                              asteroidDetails[j].size === 'medium' ? 3 : 0.7;
                                               
                     if (distance < collisionThreshold + 0.2) { // 0.2 is projectile radius
+                        // Create explosion effect at collision point
+                        const explosionSize = asteroidDetails[j].size === 'large' ? 3 : 
+                                            asteroidDetails[j].size === 'medium' ? 2 : 1;
+                        createExplosion(projectile.position, explosionSize);
+                
                         // Decrease asteroid health
                         asteroidDetails[j].health--;
                         
@@ -684,218 +1583,523 @@
             }
         }
 
-        // Create rotation vectors for local rotation
-        const rotationAxis = {
-            x: new THREE.Vector3(1, 0, 0),  // Local X axis (pitch)
-            y: new THREE.Vector3(0, 1, 0)   // Local Y axis (yaw)
-        };
+        // Update boundary visualization with patches
+        function updateBoundary() {
+            const distanceFromOrigin = controller.position.length();
+            const distanceToEdge = gameState.boundaryRadius - distanceFromOrigin;
+            
+            if (distanceToEdge < gameState.boundaryWarningDistance) {
+                // Calculate opacity based on how close to the edge (closer = more visible)
+                const opacity = 1.0 - (distanceToEdge / gameState.boundaryWarningDistance);
+                
+                // Position patches evenly around a sphere
+                const sphereRadius = gameState.boundaryRadius;
+                
+                // Calculate positions on a fibonacci sphere
+                for (let i = 0; i < boundaryPatches.length; i++) {
+                    const patch = boundaryPatches[i];
+                    
+                    // Fibonacci sphere distribution
+                    const phi = Math.acos(1 - 2 * (i + 0.5) / boundaryPatches.length);
+                    const theta = Math.PI * 2 * i * (1 + Math.sqrt(5)) / 2;
+                    
+                    // Convert to Cartesian coordinates
+                    const x = sphereRadius * Math.sin(phi) * Math.cos(theta);
+                    const y = sphereRadius * Math.sin(phi) * Math.sin(theta);
+                    const z = sphereRadius * Math.cos(phi);
+                    
+                    // Position patch on boundary
+                    patch.position.set(x, y, z);
+                    
+                    // Orient patch to face towards center
+                    patch.lookAt(0, 0, 0);
+                    
+                    // Set patch size - much larger quads
+                    const size = 15 + Math.sin(Date.now() * 0.0005 + i) * 5; // Size with subtle pulse
+                    patch.scale.set(size, size, 1);
+                    
+                    // Set patch opacity based on ship's distance to boundary and visibility from ship
+                    const directionTowardPatch = patch.position.clone().sub(controller.position).normalize();
+                    const shipForward = new THREE.Vector3(0, 0, -1).applyQuaternion(controller.quaternion);
+                    const dotProduct = directionTowardPatch.dot(shipForward);
+                    
+                    // Calculate distance factor - closer patches to the ship are more visible
+                    const distanceToShip = patch.position.distanceTo(controller.position);
+                    const distanceFactor = Math.max(0, 1 - (distanceToShip / (gameState.boundaryRadius * 1.5)));
+                    
+                    // Calculate visibility based on dot product (facing factor)
+                    // Show more patches by increasing visibility range (-0.2 means we see patches slightly behind us too)
+                    const facingFactor = Math.max(0, (dotProduct + 0.2) / 1.2);
+                    
+                    // Set opacity combining all factors
+                    patch.material.opacity = opacity * facingFactor * distanceFactor * 0.9;
+                    
+                    // Only make patches visible when they have some opacity
+                    patch.visible = patch.material.opacity > 0.01;
+                    
+                    // Set color based on proximity
+                    const colorValue = 0.5 + opacity * 0.5;
+                    patch.material.color.set(
+                        new THREE.Color(colorValue * 0.2, colorValue, colorValue)
+                    );
+                }
 
+                // Add repel effect - push ship away from boundary
+                if (distanceToEdge < gameState.boundaryWarningDistance * 0.7) {
+                    // Calculate repel direction (towards center)
+                    const repelDirection = controller.position.clone().negate().normalize();
+                    
+                    // Calculate repel strength (increases as we get closer to boundary)
+                    const repelStrength = 0.03 * (1 - distanceToEdge / (gameState.boundaryWarningDistance * 0.7));
+                    
+                    // Apply repel force to velocity
+                    gameState.velocity.add(repelDirection.multiplyScalar(repelStrength));
+                    
+                    // Create small visual effect to show repel forces
+                    if (Math.random() < 0.05) {
+                        const offsetPosition = controller.position.clone().normalize()
+                            .multiplyScalar(distanceFromOrigin + 1); // Slightly ahead of ship
+                        createExplosion(offsetPosition, 0.4);
+                    }
+                }
+            } else {
+                // Hide all patches when not near boundary
+                boundaryPatches.forEach(patch => {
+                    patch.visible = false;
+                });
+            }
+            
+            // Keep ship within boundary
+            if (distanceFromOrigin > gameState.boundaryRadius) {
+                // Normalize position to boundary radius and bounce back
+                controller.position.normalize().multiplyScalar(gameState.boundaryRadius * 0.98);
+                // Reverse velocity (bounce effect)
+                gameState.velocity.multiplyScalar(-0.5);
+            }
+        }       
+       
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Auto-fire system
-            if (gameState.autoFire) {
-                fireProjectile();
-                
-                // If mouse is down, continuously check for targets under cursor
-                if (gameState.mouseDown) {
-                    checkForTargetUnderMouse();
+
+            if (currentGameState === GAME_STATE.PLAYING) {
+                // Auto-fire system
+                if (gameState.autoFire) {
+                    fireProjectile();
                 }
-            }
-            
-            // Update target indicator
-            updateTargetIndicator();
-            
-            // Update control inputs with lerp for smooth transitions
-            const controlLerp = cameraSettings.controlLerpFactor;
+                
+                // Update target indicator
+                updateTargetIndicator();
+                
+                // Update boundary
+                updateBoundary();
+                
+                // Apply velocity to controller position
+                controller.position.add(gameState.velocity);
+                
+                // Add drag effect
+                gameState.velocity.multiplyScalar(0.99);
 
-            // Apply controller rotation based on key inputs
-            const rotationSpeed = 0.03;
-            
-            // Lerp up/down control input
-            if (gameState.tiltDown) {
-                gameState.controlInputs.tiltDownAmount += (1 - gameState.controlInputs.tiltDownAmount) * controlLerp;
-            } else {
-                gameState.controlInputs.tiltDownAmount += (0 - gameState.controlInputs.tiltDownAmount) * controlLerp;
-            }
-            
-            if (gameState.tiltUp) {
-                gameState.controlInputs.tiltUpAmount += (1 - gameState.controlInputs.tiltUpAmount) * controlLerp;
-            } else {
-                gameState.controlInputs.tiltUpAmount += (0 - gameState.controlInputs.tiltUpAmount) * controlLerp;
-            }
-            
-            // Lerp left/right control input
-            if (gameState.tiltLeft) {
-                gameState.controlInputs.tiltLeftAmount += (1 - gameState.controlInputs.tiltLeftAmount) * controlLerp;
-            } else {
-                gameState.controlInputs.tiltLeftAmount += (0 - gameState.controlInputs.tiltLeftAmount) * controlLerp;
-            }
-            
-            if (gameState.tiltRight) {
-                gameState.controlInputs.tiltRightAmount += (1 - gameState.controlInputs.tiltRightAmount) * controlLerp;
-            } else {
-                gameState.controlInputs.tiltRightAmount += (0 - gameState.controlInputs.tiltRightAmount) * controlLerp;
-            }
-            
-            // Get the controller's local axes
-            const localX = new THREE.Vector3(1, 0, 0).applyQuaternion(controller.quaternion);
-            const localY = new THREE.Vector3(0, 1, 0).applyQuaternion(controller.quaternion);
-            
-            // Apply rotations around local axes with smoothed control inputs
-            const pitchAmount = gameState.controlInputs.tiltDownAmount - gameState.controlInputs.tiltUpAmount;
-            const yawAmount = gameState.controlInputs.tiltLeftAmount - gameState.controlInputs.tiltRightAmount;
-            
-            if (pitchAmount !== 0) {
-                controller.rotateOnAxis(new THREE.Vector3(-1, 0, 0), pitchAmount * rotationSpeed);
-            }
-            
-            if (yawAmount !== 0) {
-                controller.rotateOnAxis(new THREE.Vector3(0, 1, 0), yawAmount * rotationSpeed);
-            }
-            
-            // Handle visual ship tilting (banking effect)
-            // Smoothly interpolate current tilt to target tilt
-            gameState.shipTiltZ = THREE.MathUtils.lerp(
-                gameState.shipTiltZ, 
-                gameState.targetShipTiltZ, 
-                gameState.shipTiltSpeed
-            );
-            
-            // Apply the tilt to the ship model (not the controller)
-            shipGroup.rotation.z = gameState.shipTiltZ;
+                // Check collisions
+                checkCollisions();
+                
+                // Spawn new asteroids
+                spawnAsteroids();
+                
+                updateThrusters();
 
-            // Apply thrust
-            if (gameState.thrust) {
-                // Calculate direction based on controller rotation
-                const thrustForce = 0.005;
-                const direction = new THREE.Vector3(0, 0, -1);
-                direction.applyQuaternion(controller.quaternion);
-                
-                // Add force in that direction
-                gameState.velocity.add(direction.multiplyScalar(thrustForce));
-                
-                // Randomly change thrust size for flame effect
-                thrust.scale.set(
-                    0.8 + Math.random() * 0.4,
-                    0.8 + Math.random() * 0.4,
-                    0.8 + Math.random() * 0.4
-                );
-                
-                // Calculate camera pull-back based on ship velocity
-                const velocityMagnitude = gameState.velocity.length();
-                const pullBackAmount = Math.min(
-                    cameraSettings.maxPullBack, 
-                    velocityMagnitude * cameraSettings.pullBackFactor * 100
-                );
+                // Apply thrust
+                if (gameState.thrust) {
+                    const thrustPower = 0.005;
+                    const direction = new THREE.Vector3(0, 0, -1);
+                    direction.applyQuaternion(controller.quaternion);
+                    gameState.velocity.add(direction.multiplyScalar(thrustPower));
 
-                // Set target position
-                cameraSettings.targetPosition.set(
-                    cameraSettings.basePosition.x,
-                    cameraSettings.basePosition.y,
-                    cameraSettings.basePosition.z + pullBackAmount
-                );
-            }
-            
-            // Always smoothly transition camera position
-            if (cameraSettings.isTransitioning || 
-                !cameraSettings.currentPosition.equals(cameraSettings.targetPosition)) {
-                
-                // Smoothly interpolate current position toward target position
-                cameraSettings.currentPosition.lerp(
-                    cameraSettings.targetPosition,
-                    cameraSettings.lerpFactor
-                );
-                
-                // Check if we've effectively reached the target
-                if (cameraSettings.currentPosition.distanceTo(cameraSettings.targetPosition) < 0.01) {
-                    cameraSettings.currentPosition.copy(cameraSettings.targetPosition);
-                    cameraSettings.isTransitioning = false;
+                    thrust.scale.set(
+                        0.8 + Math.random() * 0.4,
+                        0.8 + Math.random() * 0.4,
+                        0.8 + Math.random() * 0.4
+                    ); 
+
+                    // Calculate camera pull-back based on ship velocity
+                    const velocityMagnitude = gameState.velocity.length();
+                    const pullBackAmount = Math.min(
+                        cameraSettings.maxPullBack, 
+                        velocityMagnitude * cameraSettings.pullBackFactor * 100
+                    );
+
+                    // Set target position
+                    cameraSettings.targetPosition.set(
+                        cameraSettings.basePosition.x,
+                        cameraSettings.basePosition.y,
+                        cameraSettings.basePosition.z + pullBackAmount
+                    );
+
+                    const now = Date.now();
+                    if (now - gameState.lastThrustParticleEmission > 100) { // 0.1 second cooldown
+                    // Get thruster position in world space (front of controller)
+                    const thrustPosition = new THREE.Vector3(0, 0, 0);
+                    thrustPosition.applyMatrix4(controller.matrixWorld);
+                    
+                    // Always use controller's local -Z axis (forward)
+                    const thrustDirection = new THREE.Vector3(0, 0, 1);
+                    thrustDirection.applyQuaternion(controller.quaternion);
+                    
+                    createThrusterParticles(thrustPosition, thrustDirection);
+                    gameState.lastThrustParticleEmission = now;
                 }
-            }
+                    
+                }
+                        
+                // Apply reverse thrust
+                if (gameState.reverseThrust) {
+                    const reverseThrustPower = 0.003; // Slightly weaker than forward thrust
+                    const direction = new THREE.Vector3(0, 0, 1); // Reverse direction
+                    direction.applyQuaternion(controller.quaternion);
+                    gameState.velocity.add(direction.multiplyScalar(reverseThrustPower));
+                    
+                    // Pulse the reverse thrust effect for visual feedback
+                    if (gameState.backThrustEffect) {
+                        gameState.backThrustEffect.scale.x = 0.8 + Math.sin(Date.now() * 0.01) * 0.2;
+                        gameState.backThrustEffect.scale.y = 0.8 + Math.sin(Date.now() * 0.01) * 0.2;
+                    }
+                }
+                
+                // Always smoothly transition camera position
+                if (cameraSettings.isTransitioning || 
+                    !cameraSettings.currentPosition.equals(cameraSettings.targetPosition)) {
+                    
+                    // Smoothly interpolate current position toward target position
+                    cameraSettings.currentPosition.lerp(
+                        cameraSettings.targetPosition,
+                        cameraSettings.lerpFactor
+                    );
+                    
+                    // Check if we've effectively reached the target
+                    if (cameraSettings.currentPosition.distanceTo(cameraSettings.targetPosition) < 0.01) {
+                        cameraSettings.currentPosition.copy(cameraSettings.targetPosition);
+                        cameraSettings.isTransitioning = false;
+                    }
+                }
 
-            // Update camera position
-            camera.position.copy(cameraSettings.currentPosition);
-            
-            // Apply velocity decay (space friction)
-            gameState.velocity.multiplyScalar(0.99);
-            
-            // Move controller based on velocity
-            controller.position.add(gameState.velocity);
-            
-            // Update projectiles with soft target tracking
-            projectiles.forEach(projectile => {
-                if (projectile.active) {
-                    // Check if target is still valid
-                    if (projectile.target && !asteroids.includes(projectile.target)) {
-                        projectile.target = null;
-                    }
+                // Update camera position
+                camera.position.copy(cameraSettings.currentPosition);
+                
+                // Update projectiles
+                for (let i = 0; i < projectiles.length; i++) {
+                    const projectile = projectiles[i];
+                    if (!projectile.active) continue;
+
+                    // Increment lifetime
+                    projectile.lifetime++;
                     
-                    // Apply soft aim if a target exists
-                    if (projectile.target) {
-                        // Calculate direction to target
-                        const toTarget = new THREE.Vector3().subVectors(
-                            projectile.target.position, 
-                            projectile.position
-                        ).normalize();
-                        
-                        // Soften the homing effect based on distance
-                        const distance = projectile.position.distanceTo(projectile.target.position);
-                        const homingFactor = Math.min(0.01, 5.0 / distance); // Stronger at close range
-                        
-                        // Adjust projectile velocity towards target (soft aim)
-                        projectile.velocity.lerp(toTarget, homingFactor);
-                        projectile.velocity.normalize().multiplyScalar(1); // Keep speed constant
+                    // Deactivate if exceeds max lifetime
+                    if (projectile.lifetime > projectile.maxLifetime) {
+                        projectile.active = false;
+                        projectile.visible = false;
+                        continue;
                     }
-                    
-                    // Move projectile based on its velocity
+
+                    // Update projectile position
                     projectile.position.add(projectile.velocity);
-                    
+
+                    // Calculate target rotation if we have a target
+                    if (projectile.target && projectile.target.active !== false) {
+                        // Calculate direction to target
+                        const toTarget = projectile.target.position.clone().sub(projectile.position);
+                        const distanceToTarget = toTarget.length();
+                        
+                        // Only apply aim assistance when within range
+                        if (distanceToTarget < 130) {
+                            // Normalize target direction
+                            toTarget.normalize();
+                            
+                            // Linear interpolation based on lifetime - proper lerp from 0 to 1
+                            // Use a smaller value for slower turning (0.01-0.03) or higher for faster turning (0.05-0.1)
+                            const lerpSpeed = 0.03;
+                            projectile.rotationProgress = Math.min(1, projectile.lifetime * lerpSpeed);
+                            
+                            // Also adjust velocity direction slightly toward target
+                            // The amount of adjustment increases as rotation increases
+                            projectile.velocity.lerp(
+                                toTarget.multiplyScalar(projectile.velocity.length()),
+                                projectile.rotationProgress * 0.03 // Adjust this multiplier to control homing strength
+                            );
+                        }
+                    } else {
+                        // No target or target destroyed - just align with movement direction
+                        const moveDirection = projectile.velocity.clone().normalize();
+                        const alignRotation = new THREE.Quaternion();
+                        alignRotation.setFromUnitVectors(
+                            new THREE.Vector3(0, 0, 1),
+                            moveDirection
+                        );
+                        alignRotation.multiply(new THREE.Quaternion().setFromAxisAngle(
+                            new THREE.Vector3(1, 0, 0),
+                            Math.PI/2
+                        ));
+                        
+                        // Apply alignment gradually
+                        projectile.quaternion.slerp(alignRotation, 0.1);
+                    }
+                    // Check if projectile hit boundary
+                    if (projectile.position.length() > gameState.boundaryRadius) {
+                        // Create small explosion effect at boundary hit point
+                        createExplosion(projectile.position, 0.7);
+                        
+                        // Deactivate projectile
+                        projectile.active = false;
+                        projectile.visible = false;
+                        continue;
+                    }
+
                     // Check if projectile is out of bounds
                     if (projectile.position.length() > 200) {
                         projectile.active = false;
                         projectile.visible = false;
-                        projectile.target = null;
                     }
                 }
-            });
-            
-            // Update asteroids
-            for (let i = 0; i < asteroids.length; i++) {
-                const asteroid = asteroids[i];
-                const details = asteroidDetails[i];
                 
-                // Apply rotation
-                asteroid.rotation.x += details.rotationSpeed.x;
-                asteroid.rotation.y += details.rotationSpeed.y;
-                asteroid.rotation.z += details.rotationSpeed.z;
+                // Update asteroids
+                for (let i = 0; i < asteroids.length; i++) {
+                    const asteroid = asteroids[i];
+                    const details = asteroidDetails[i];
+                    
+                    // Rotate asteroid
+                    asteroid.rotation.x += details.rotationSpeed.x;
+                    asteroid.rotation.y += details.rotationSpeed.y;
+                    asteroid.rotation.z += details.rotationSpeed.z;
+                    
+                    // Move asteroid
+                    asteroid.position.add(details.direction.clone().multiplyScalar(details.speed));
+                    
+                    // Wrap around when asteroid gets too far
+                    if (asteroid.position.length() > 150) {
+                        // Reset its position to the opposite direction from the center
+                        asteroid.position.normalize().multiplyScalar(-120);
+                        
+                        // Slightly adjust direction toward center
+                        details.direction = new THREE.Vector3(
+                            -asteroid.position.x,
+                            -asteroid.position.y,
+                            -asteroid.position.z
+                        ).normalize();
+                        
+                        // Add randomness to direction
+                        details.direction.x += (Math.random() - 0.5) * 0.5;
+                        details.direction.y += (Math.random() - 0.5) * 0.5;
+                        details.direction.z += (Math.random() - 0.5) * 0.5;
+                        details.direction.normalize();
+                    }
+                }
                 
-                // Move towards controller (with some randomization)
-                asteroid.position.x += details.direction.x * details.speed;
-                asteroid.position.y += details.direction.y * details.speed;
-                asteroid.position.z += details.direction.z * details.speed;
+                function updateRaycast() {
+                    const now = Date.now();
+                    
+                    // Toggle raycast visibility
+                    if (gameState.raycastActive && now - gameState.lastRaycastTime > gameState.raycastInterval) {
+                        // 1. Perform raycast
+                        const direction = new THREE.Vector3(0, 0, -1) // Local Z-forward
+                            .applyQuaternion(controller.quaternion);
+                        
+                        raycaster.set(controller.position, direction);
+                        const intersects = raycaster.intersectObjects(asteroids);
+                        
+                        // 2. Create visual line
+                        const rayLength = intersects[0]?.distance || 500;
+                        const positions = new Float32Array([
+                            0, 0, 0, // Start at ship nose
+                            0, 0, -rayLength // End at hit point or max distance
+                        ]);
+                        raycastGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                        raycastGeometry.attributes.position.needsUpdate = true;
+                        
+                        // Position line in ship space
+                        raycastLine.position.copy(controller.position);
+                        raycastLine.quaternion.copy(controller.quaternion);
+                        raycastLine.visible = true;
+                        
+                        // 3. Add flicker effect
+                        let flickerCount = 0;
+                        const maxFlickers = 1;
+                        const flickerInterval = setInterval(() => {
+                            raycastLine.visible = !raycastLine.visible;
+                            if (++flickerCount >= maxFlickers * 5) {
+                                clearInterval(flickerInterval);
+                                raycastLine.visible = false;
+                            }
+                        }, 1);
+                        
+                        // Create impact particles if we hit something
+                        if (intersects.length > 0) {
+                            createImpactParticles(
+                                intersects[0].point,
+                                intersects[0].face.normal // Surface normal for repulsion
+                            );
+                        }
+                        
+                        gameState.lastRaycastTime = now;
+                    }
+                }
                 
-                // Gradually move direction towards controller for homing effect
-                const toController = new THREE.Vector3(
-                    controller.position.x - asteroid.position.x,
-                    controller.position.y - asteroid.position.y,
-                    controller.position.z - asteroid.position.z
-                ).normalize();
+                if (gameState.impactParticles) {
+                    updateImpactParticles();
+                }
+
+                updateRaycast();
+
+                // Update control inputs with lerp for smooth transitions
+                const controlLerp = cameraSettings.controlLerpFactor;
+
+                // Apply controller rotation based on key inputs
+                const rotationSpeed = 0.01;
+
+                // Update control input values with smooth transitions
+                if (gameState.tiltUp) {
+                    gameState.controlInputs.tiltUpAmount += (1 - gameState.controlInputs.tiltUpAmount) * controlLerp;
+                } else {
+                    gameState.controlInputs.tiltUpAmount *= (1 - controlLerp);
+                }
+
+                if (gameState.tiltDown) {
+                    gameState.controlInputs.tiltDownAmount += (1 - gameState.controlInputs.tiltDownAmount) * controlLerp;
+                } else {
+                    gameState.controlInputs.tiltDownAmount *= (1 - controlLerp);
+                }
+
+                if (gameState.tiltLeft) {
+                    gameState.controlInputs.tiltLeftAmount += (1 - gameState.controlInputs.tiltLeftAmount) * controlLerp;
+                    rightThrust.scale.set(
+                            0.8 + Math.random() * 0.4,
+                            0.8 + Math.random() * 0.4,
+                            0.8 + Math.random() * 0.4
+                            );
+                } else {
+                    gameState.controlInputs.tiltLeftAmount *= (1 - controlLerp);
+                }
+
+                if (gameState.tiltRight) {
+                    gameState.controlInputs.tiltRightAmount += (1 - gameState.controlInputs.tiltRightAmount) * controlLerp;
+                    leftThrust.scale.set(
+                        0.8 + Math.random() * 0.4,
+                        0.8 + Math.random() * 0.4,
+                        0.8 + Math.random() * 0.4
+                        );
+                    
+                } else {
+                    gameState.controlInputs.tiltRightAmount *= (1 - controlLerp);
+                }
+
+                // Get the controller's local axes
+                const localX = new THREE.Vector3(1, 0, 0).applyQuaternion(controller.quaternion);
+                const localY = new THREE.Vector3(0, 1, 0).applyQuaternion(controller.quaternion);
+
+                // Apply rotations around local axes with smoothed control inputs
+                const pitchAmount = gameState.controlInputs.tiltDownAmount - gameState.controlInputs.tiltUpAmount;
+                const yawAmount = gameState.controlInputs.tiltLeftAmount - gameState.controlInputs.tiltRightAmount;
+
+                if (pitchAmount !== 0) {
+                    controller.rotateOnAxis(new THREE.Vector3(-1, 0, 0), pitchAmount * rotationSpeed);
+                }
+
+                if (yawAmount !== 0) {
+                    controller.rotateOnAxis(new THREE.Vector3(0, 1, 0), yawAmount * rotationSpeed);
+                }
+
+                // Smoothly transition to target tilt
+                gameState.shipTiltZ += (gameState.targetShipTiltZ - gameState.shipTiltZ) * gameState.shipTiltSpeed;
+                shipGroup.rotation.z = gameState.shipTiltZ;
+
                 
-                details.direction.lerp(toController, 0.001);
-                details.direction.normalize();
+                // Update thrusters visibility based on controls
+                leftThrust.visible = gameState.tiltRight;
+                rightThrust.visible = gameState.tiltLeft;
+                thrust.visible = gameState.thrust;
+
+                
+
+                // Update explosion particles
+                for (let i = 0; i < explosionParticles.length; i++) {
+                    const particles = explosionParticles[i];
+                    if (!particles.active) continue;
+                    
+                    particles.lifetime += 1;
+                    
+                    // Update particle positions
+                    const positions = particles.geometry.attributes.position.array;
+                    
+                    for (let j = 0; j < particleCount; j++) {
+                        const idx = j * 3;
+                        
+                        // Update position based on velocity
+                        positions[idx] += particles.velocities[j].x;
+                        positions[idx + 1] += particles.velocities[j].y;
+                        positions[idx + 2] += particles.velocities[j].z;
+                        
+                        // Add some gravity effect
+                        particles.velocities[j].y -= 0.002;
+                    }
+                    
+                    particles.geometry.attributes.position.needsUpdate = true;
+                    
+                    // Fade out particles
+                    if (particles.lifetime > 20) {
+                        particles.material.opacity -= 0.05;
+                        
+                        if (particles.material.opacity <= 0) {
+                            particles.active = false;
+                            particles.visible = false;
+                        }
+                    }
+                }
+
+                // Update thrust particles
+                for (let i = 0; i < thrusterParticles.length; i++) {
+                    const particles = thrusterParticles[i];
+                    if (!particles.active) continue;
+                    
+                    particles.lifetime += 1;
+                    const progress = particles.lifetime / particles.maxLifetime;
+                    const positions = particles.geometry.attributes.position.array;
+                    const sizes = particles.geometry.attributes.size.array;
+                    
+                    for (let j = 0; j < thrusterParticleCount; j++) {
+                        // Update positions
+                        positions[j * 3] += particles.velocities[j].x;
+                        positions[j * 3 + 1] += particles.velocities[j].y;
+                        positions[j * 3 + 2] += particles.velocities[j].z;
+                        
+                        // Scale down each particle individually
+                        sizes[j] = 0.5 * (1.0 - progress); // Scale from original size down to 0
+                    }
+                    
+                    particles.geometry.attributes.position.needsUpdate = true;
+                    particles.geometry.attributes.size.needsUpdate = true;
+                    
+                    // Fade out
+                    if (progress > 0.6) {
+                        particles.material.opacity = 1.0 - ((progress - 0.6) / 0.4);
+                    }
+                    
+                    if (particles.lifetime > particles.maxLifetime) {
+                        particles.active = false;
+                        particles.visible = false;
+                        particles.material.opacity = 1.0;
+                    }
+                }            
+                
+                updateDodge();
+                
+
             }
-            
-            // Check for collisions
-            checkCollisions();
-            
-            // Spawn new asteroids
-            spawnAsteroids();
-            
+
+            // Render scene
             renderer.render(scene, camera);
         }
 
+        initGameStates();
+
+        // Start animation
         animate();
     </script>
 </body>
